@@ -8,6 +8,7 @@ import os
 from app import app
 from flask import render_template, request, redirect, url_for, flash, session, abort
 from werkzeug.utils import secure_filename
+from app import forms
 
 
 ###
@@ -23,7 +24,7 @@ def home():
 @app.route('/about/')
 def about():
     """Render the website's about page."""
-    return render_template('about.html', name="Mary Jane")
+    return render_template('about.html', name="Rory Young")
 
 
 @app.route('/upload', methods=['POST', 'GET'])
@@ -32,14 +33,18 @@ def upload():
         abort(401)
 
     # Instantiate your form class
+    formUpload = UploadForm()
+    if request.method =='GET':
+        return render_template('upload.html', form = formUpload)
 
     # Validate file upload on submit
-    if request.method == 'POST':
+    if request.method == 'POST' and formUpload.validate_on_submit():
         # Get file data and save to your uploads folder
-
+        file = formUpload.file.data
+        filename = secure_filename(file.filename)
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
         flash('File Saved', 'success')
         return redirect(url_for('home'))
-
     return render_template('upload.html')
 
 
@@ -75,7 +80,7 @@ def flash_errors(form):
             flash(u"Error in the %s field - %s" % (
                 getattr(form, field).label.text,
                 error
-), 'danger')
+    ), 'danger')
 
 @app.route('/<file_name>.txt')
 def send_text_file(file_name):
