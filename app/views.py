@@ -8,8 +8,9 @@ import os
 from app import app
 from flask import render_template, request, redirect, url_for, flash, session, abort
 from werkzeug.utils import secure_filename
-from app import forms
-
+from app.forms import UploadForm
+from flask.helpers import send_from_directory
+import os
 
 ###
 # Routing for your application.
@@ -29,23 +30,44 @@ def about():
 
 @app.route('/upload', methods=['POST', 'GET'])
 def upload():
+    uploadForm = UploadForm()
     if not session.get('logged_in'):
         abort(401)
+    if request.method == 'GET':
+        return render_template('upload.html',form=uploadForm)
 
-    # Instantiate your form class
-    formUpload = UploadForm()
-    if request.method =='GET':
-        return render_template('upload.html', form = formUpload)
+    if request.method == 'POST' and uploadForm.validate_on_submit():
+            photo = request.files['photo']
+            filename = secure_filename(photo.filename)
+            photo.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            flash('File Saved', 'success')
+            return redirect(url_for('home'))
 
-    # Validate file upload on submit
-    if request.method == 'POST' and formUpload.validate_on_submit():
-        # Get file data and save to your uploads folder
-        file = formUpload.file.data
-        filename = secure_filename(file.filename)
-        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-        flash('File Saved', 'success')
-        return redirect(url_for('home'))
     return render_template('upload.html')
+
+def get_uploaded_images():
+    imagelocation =[]
+    rootdir = os.getcwd()    
+    for subdir, dirs, files in os.walk(rootdir + '\\uploads\\'):
+        for file in files:
+            if ".jpg" in file or ".png" in file:
+                imagelocation.append(file)
+    return imagelocation
+
+
+@app.route('/uploads/<filename>')
+def get_image(filename):
+    root_dir = os.getcwd()
+    return send_from_directory(os.path.join(root_dir,app.config['UPLOAD_FOLDER']), filename)
+
+
+@app.route('/files', methods = ['POST', 'GET'])
+def files():
+    if not session.get('logged_in'):
+        abort(401)
+    images=get_uploaded_images()
+    if request.method =='GET':
+        return render_template('files.html', images= images)
 
 
 @app.route('/login', methods=['POST', 'GET'])
@@ -80,7 +102,7 @@ def flash_errors(form):
             flash(u"Error in the %s field - %s" % (
                 getattr(form, field).label.text,
                 error
-    ), 'danger')
+), 'danger')
 
 @app.route('/<file_name>.txt')
 def send_text_file(file_name):
